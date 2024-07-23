@@ -18,7 +18,7 @@ function ConvertTo-SystemEventMessage ($eventDetail, $clientId, $tenantId) {
             Break
         }
         "#microsoft.graph.callRecordingEventMessageDetail" {
-            "$(Get-Initiator $eventDetail.initiator $clientId, $tenantId) starts call recording (Name: $($eventDetail.callRecordingDisplayName)). Duration $($eventDetail.callRecordingDuration). Recording Url $($eventDetail.callRecordingUrl)"
+            "$(Get-Initiator $eventDetail.initiator $clientId, $tenantId) starts call recording (Name: $($eventDetail.callRecordingDisplayName))."
             Break
         }
         "#microsoft.graph.callTranscriptEventMessageDetail" {
