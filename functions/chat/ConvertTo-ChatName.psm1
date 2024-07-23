@@ -6,7 +6,7 @@ function ConvertTo-ChatName ($chat, $members, $me, $clientId, $tenantId) {
     $name = $chat.topic
 
     if ($null -eq $chat.topic) {
-        $memberNames = $members | ForEach-Object -Process {
+        $memberNames = $members[0..5] | ForEach-Object -Process {
             if ($null -eq $_.displayName) {
                 $_.displayName = (Get-DisplayName $_.userId $clientId $tenantId)
             }
