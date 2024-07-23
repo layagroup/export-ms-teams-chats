@@ -80,113 +80,120 @@ foreach ($chat in $chats) {
     Write-Progress -Activity "Exporting Chats" -Status "Chat $($chatIndex) of $($chats.count)" -PercentComplete $(($chatIndex / $chats.count) * 100)
     $chatIndex += 1
 
-    $members = $chat.members
-    $name = ConvertTo-ChatName $chat $members $me $clientId $tenantId
+    Write-Host ("Processing chat '$($chat.topic)' with id '$($chat.id)'")
+
+    try {
+        $members = $chat.members
+        $name = ConvertTo-ChatName $chat $members $me $clientId $tenantId
     
-    if ($null -ne $toExport -and $toExport -notcontains $name) {
-        Write-Verbose ("$name is not in chats to export ($($toExport -join ", ")), skipping...")
-        continue
-    }
-    if ([string]::isNullorEmpty($name)) {
-        $name = "UNKNOWN CHAT $($chatIndex)"
-    }
-
-    $messages = Get-Messages $chat $clientId $tenantId
-
-    $messagesHTML = $null
-
-    if ($messages.count -gt $minMessages) {
-
-        Write-Host -ForegroundColor White ("`r`n$name :: $($messages.count) messages.")
-
-        # download profile pictures for use later
-        Write-Host "Downloading profile pictures..."
-
-        foreach ($member in $members) {
-            Get-ProfilePicture $member.userId $assetsFolder $clientId $tenantId | Out-Null
+        if ($null -ne $toExport -and $toExport -notcontains $name) {
+            Write-Verbose ("$name is not in chats to export ($($toExport -join ", ")), skipping...")
+            continue
+        }
+        if ([string]::isNullorEmpty($name)) {
+            $name = "UNKNOWN CHAT $($chatIndex)"
         }
 
-        Write-Host "Processing messages..."
+        $messages = Get-Messages $chat $clientId $tenantId
 
-        foreach ($message in $messages) {
-            $profilePicture = Get-ProfilePicture $message.from.user.id $assetsFolder $clientId $tenantId
-            $time = ConvertTo-CleanDateTime $message.createdDateTime
+        $messagesHTML = $null
 
-            switch ($message.messageType) {
-                "message" {
-                    $messageBody = $message.body.content
+        if ($messages.count -gt $minMessages) {
 
-                    $imageTagMatches = [Regex]::Matches($messageBody, "<img.+?src=[\`"']https:\/\/graph.microsoft.com(.+?)[\`"'].*?>")
+            Write-Host -ForegroundColor White ("`r`n$name :: $($messages.count) messages.")
 
-                    foreach ($imageTagMatch in $imageTagMatches) {
-                        Write-Verbose "Downloading embedded image in message..."
-                        $imagePath = Get-Image $imageTagMatch $assetsFolder $clientId $tenantId
-                        $messageBody = $messageBody.Replace($imageTagMatch.Groups[0], "<img src=`"$imagePath`" style=`"width: 100%;`" >")
-                    }
+            # download profile pictures for use later
+            Write-Host "Downloading profile pictures..."
+
+            foreach ($member in $members) {
+                Get-ProfilePicture $member.userId $assetsFolder $clientId $tenantId | Out-Null
+            }
+
+            Write-Host "Processing messages..."
+
+            foreach ($message in $messages) {
+                $profilePicture = Get-ProfilePicture $message.from.user.id $assetsFolder $clientId $tenantId
+                $time = ConvertTo-CleanDateTime $message.createdDateTime
+
+                switch ($message.messageType) {
+                    "message" {
+                        $messageBody = $message.body.content
+
+                        $imageTagMatches = [Regex]::Matches($messageBody, "<img.+?src=[\`"']https:\/\/graph.microsoft.com(.+?)[\`"'].*?>")
+
+                        foreach ($imageTagMatch in $imageTagMatches) {
+                            Write-Verbose "Downloading embedded image in message..."
+                            $imagePath = Get-Image $imageTagMatch $assetsFolder $clientId $tenantId
+                            $messageBody = $messageBody.Replace($imageTagMatch.Groups[0], "<img src=`"$imagePath`" style=`"width: 100%;`" >")
+                        }
         
-                    $messageHTML = $messageHTMLTemplate
-                    $messageHTML = $messageHTML.Replace("###ATTACHMENTS###", (ConvertTo-HTMLAttachments $message.attachments))
-                    $messageHTML = $messageHTML.Replace("###CONVERSATION###", $messageBody)
-                    $messageHTML = $messageHTML.Replace("###DATE###", $time)
-                    $messageHTML = $messageHTML.Replace("###DELETED###", "$($null -ne $message.deletedDateTime)".ToLower())
-                    $messageHTML = $messageHTML.Replace("###EDITED###", "$($null -ne $message.lastEditedDateTime)".ToLower())
-                    $messageHTML = $messageHTML.Replace("###IMAGE###", $profilePicture)
-                    $messageHTML = $messageHTML.Replace("###ME###", "$($message.from.user.displayName -eq $me.displayName)".ToLower())
-                    $messageHTML = $messageHTML.Replace("###NAME###", (Get-Initiator $message.from clientId $tenantId))
-                    $messageHTML = $messageHTML.Replace("###PRIORITY###", $message.importance)
+                        $messageHTML = $messageHTMLTemplate
+                        $messageHTML = $messageHTML.Replace("###ATTACHMENTS###", (ConvertTo-HTMLAttachments $message.attachments))
+                        $messageHTML = $messageHTML.Replace("###CONVERSATION###", $messageBody)
+                        $messageHTML = $messageHTML.Replace("###DATE###", $time)
+                        $messageHTML = $messageHTML.Replace("###DELETED###", "$($null -ne $message.deletedDateTime)".ToLower())
+                        $messageHTML = $messageHTML.Replace("###EDITED###", "$($null -ne $message.lastEditedDateTime)".ToLower())
+                        $messageHTML = $messageHTML.Replace("###IMAGE###", $profilePicture)
+                        $messageHTML = $messageHTML.Replace("###ME###", "$($message.from.user.displayName -eq $me.displayName)".ToLower())
+                        $messageHTML = $messageHTML.Replace("###NAME###", (Get-Initiator $message.from clientId $tenantId))
+                        $messageHTML = $messageHTML.Replace("###PRIORITY###", $message.importance)
 
-                    $messagesHTML += $messageHTML
+                        $messagesHTML += $messageHTML
                         
-                    Break
-                }
-                "systemEventMessage" {
-                    $messageHTML = $messageHTMLTemplate
-                    $messageHTML = $messageHTML.Replace("###ATTACHMENTS###", $null)
-                    $messageHTML = $messageHTML.Replace("###CONVERSATION###", (ConvertTo-SystemEventMessage $message.eventDetail $clientId $tenantId))
-                    $messageHTML = $messageHTML.Replace("###DATE###", $time)
-                    $messageHTML = $messageHTML.Replace("###DELETED###", $null)
-                    $messageHTML = $messageHTML.Replace("###EDITED###", $null)
-                    $messageHTML = $messageHTML.Replace("###IMAGE###", $profilePicture)
-                    $messageHTML = $messageHTML.Replace("###ME###", "false")
-                    $messageHTML = $messageHTML.Replace("###NAME###", "System Event")
-                    $messageHTML = $messageHTML.Replace("###PRIORITY###", $message.importance)
+                        Break
+                    }
+                    "systemEventMessage" {
+                        $messageHTML = $messageHTMLTemplate
+                        $messageHTML = $messageHTML.Replace("###ATTACHMENTS###", $null)
+                        $messageHTML = $messageHTML.Replace("###CONVERSATION###", (ConvertTo-SystemEventMessage $message.eventDetail $clientId $tenantId))
+                        $messageHTML = $messageHTML.Replace("###DATE###", $time)
+                        $messageHTML = $messageHTML.Replace("###DELETED###", $null)
+                        $messageHTML = $messageHTML.Replace("###EDITED###", $null)
+                        $messageHTML = $messageHTML.Replace("###IMAGE###", $profilePicture)
+                        $messageHTML = $messageHTML.Replace("###ME###", "false")
+                        $messageHTML = $messageHTML.Replace("###NAME###", "System Event")
+                        $messageHTML = $messageHTML.Replace("###PRIORITY###", $message.importance)
 
-                    $messagesHTML += $messageHTML
+                        $messagesHTML += $messageHTML
 
-                    Break
-                }
-                Default {
-                    Write-Warning "Unhandled message type: $($message.messageType)"
+                        Break
+                    }
+                    Default {
+                        Write-Warning "Unhandled message type: $($message.messageType)"
+                    }
                 }
             }
+
+            $chatHTML = $chatHTMLTemplate
+            $chatHTML = $chatHTML.Replace("###MESSAGES###", $messagesHTML)
+            $chatHTML = $chatHTML.Replace("###CHATNAME###", $name)
+            $chatHTML = $chatHTML.Replace("###STYLE###", $stylesheetCSS)
+
+            $name = $name.Split([IO.Path]::GetInvalidFileNameChars()) -join "_"
+
+            if ($name.length -gt 64) {
+                $name = $name.Substring(0, 64)
+            }
+
+            $file = Join-Path -Path $exportFolder -ChildPath "$name.html"
+
+            if ($chat.chatType -ne "oneOnOne") {
+                # add hash of chatId in case multiple chats have the same name or members
+                $chatIdStream = [IO.MemoryStream]::new([byte[]][char[]]$chat.id)
+                $chatIdShortHash = (Get-FileHash -InputStream $chatIdStream -Algorithm SHA256).Hash.Substring(0, 8)
+                $file = $file.Replace(".html", ( " ($chatIdShortHash).html"))
+            }
+
+            Write-Host -ForegroundColor Green "Exporting $file..."
+            $chatHTML | Out-File -LiteralPath $file
         }
-
-        $chatHTML = $chatHTMLTemplate
-        $chatHTML = $chatHTML.Replace("###MESSAGES###", $messagesHTML)
-        $chatHTML = $chatHTML.Replace("###CHATNAME###", $name)
-        $chatHTML = $chatHTML.Replace("###STYLE###", $stylesheetCSS)
-
-        $name = $name.Split([IO.Path]::GetInvalidFileNameChars()) -join "_"
-
-        if ($name.length -gt 64) {
-            $name = $name.Substring(0, 64)
+        else {
+            Write-Host ("`r`n$name :: Number of messages $($messages.count) is less than $($minMessages)")
+            Write-Host -ForegroundColor Yellow "Skipping..."
         }
-
-        $file = Join-Path -Path $exportFolder -ChildPath "$name.html"
-
-        if ($chat.chatType -ne "oneOnOne") {
-            # add hash of chatId in case multiple chats have the same name or members
-            $chatIdStream = [IO.MemoryStream]::new([byte[]][char[]]$chat.id)
-            $chatIdShortHash = (Get-FileHash -InputStream $chatIdStream -Algorithm SHA256).Hash.Substring(0, 8)
-            $file = $file.Replace(".html", ( " ($chatIdShortHash).html"))
-        }
-
-        Write-Host -ForegroundColor Green "Exporting $file..."
-        $chatHTML | Out-File -LiteralPath $file
     }
-    else {
-        Write-Host ("`r`n$name :: Number of messages $($messages.count) is less than $($minMessages)")
-        Write-Host -ForegroundColor Yellow "Skipping..."
+    catch {
+        Write-Host -ForegroundColor Red "Error occured while processing chat $($chat.topic)`r`n$($_)`r`nContinue..."
     }
 }
 
