@@ -80,7 +80,7 @@ foreach ($chat in $chats) {
     Write-Progress -Activity "Exporting Chats" -Status "Chat $($chatIndex) of $($chats.count)" -PercentComplete $(($chatIndex / $chats.count) * 100)
     $chatIndex += 1
 
-    $members = Get-Members $chat $clientId $tenantId
+    $members = $chat.members
     $name = ConvertTo-ChatName $chat $members $me $clientId $tenantId
     
     if ($null -ne $toExport -and $toExport -notcontains $name) {
