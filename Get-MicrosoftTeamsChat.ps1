@@ -87,12 +87,15 @@ foreach ($chat in $chats) {
         Write-Verbose ("$name is not in chats to export ($($toExport -join ", ")), skipping...")
         continue
     }
+    if ([string]::isNullorEmpty($name)) {
+        $name = "UNKNOWN CHAT $($chatIndex)"
+    }
 
     $messages = Get-Messages $chat $clientId $tenantId
 
     $messagesHTML = $null
 
-    if (($messages.count -gt $minMessages) -and (-not([string]::isNullorEmpty($name)))) {
+    if ($messages.count -gt $minMessages) {
 
         Write-Host -ForegroundColor White ("`r`n$name :: $($messages.count) messages.")
 
@@ -174,7 +177,7 @@ foreach ($chat in $chats) {
         if ($chat.chatType -ne "oneOnOne") {
             # add hash of chatId in case multiple chats have the same name or members
             $chatIdStream = [IO.MemoryStream]::new([byte[]][char[]]$chat.id)
-            $chatIdShortHash = (Get-FileHash -InputStream $chatIdStream -Algorithm SHA256).Hash.Substring(0,8)
+            $chatIdShortHash = (Get-FileHash -InputStream $chatIdStream -Algorithm SHA256).Hash.Substring(0, 8)
             $file = $file.Replace(".html", ( " ($chatIdShortHash).html"))
         }
 
