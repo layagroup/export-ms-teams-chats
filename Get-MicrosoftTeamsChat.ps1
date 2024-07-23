@@ -30,7 +30,8 @@ Param(
     [Parameter(Mandatory = $false, HelpMessage = "Export location of where the HTML files will be saved.")] [string] $exportFolder = "out",
     [Parameter(Mandatory = $false, HelpMessage = "If specified, only group chats this string (exact match) will be exported")] [string[]] $toExport = $null,
     [Parameter(Mandatory = $false, HelpMessage = "The client id of the Azure AD App Registration")] [string] $clientId = "31359c7f-bd7e-475c-86db-fdb8c937548e",
-    [Parameter(Mandatory = $false, HelpMessage = "The tenant id of the Azure AD environment the user logs into")] [string] $tenantId = "common"
+    [Parameter(Mandatory = $false, HelpMessage = "The tenant id of the Azure AD environment the user logs into")] [string] $tenantId = "common",
+    [Parameter(Mandatory = $false, HelpMessage = "Exports chats with messages greater than xx")] [int] $minMessages = 50
 )
 
 #################################
@@ -91,7 +92,7 @@ foreach ($chat in $chats) {
 
     $messagesHTML = $null
 
-    if (($messages.count -gt 0) -and (-not([string]::isNullorEmpty($name)))) {
+    if (($messages.count -gt $minMessages) -and (-not([string]::isNullorEmpty($name)))) {
 
         Write-Host -ForegroundColor White ("`r`n$name :: $($messages.count) messages.")
 
@@ -181,7 +182,7 @@ foreach ($chat in $chats) {
         $chatHTML | Out-File -LiteralPath $file
     }
     else {
-        Write-Host ("`r`n$name :: No messages found.")
+        Write-Host ("`r`n$name :: Number of messages $($messages.count) is less than $($minMessages)")
         Write-Host -ForegroundColor Yellow "Skipping..."
     }
 }
