@@ -13,8 +13,25 @@ function ConvertTo-SystemEventMessage ($eventDetail, $clientId, $tenantId) {
             "$(Get-Initiator $eventDetail.initiator $clientId, $tenantId) started a call."
             Break
         }
+        "#microsoft.graph.teamJoiningEnabledEventMessageDetail" {
+            "$(Get-Initiator $eventDetail.initiator $clientId, $tenantId) allowed to join a team (id: $($eventDetail.teamId))."
+            Break
+        }
+        "#microsoft.graph.callRecordingEventMessageDetail" {
+            "$(Get-Initiator $eventDetail.initiator $clientId, $tenantId) starts call recording (Name: $($eventDetail.callRecordingDisplayName)). Duration $($eventDetail.callRecordingDuration). Recording Url $($eventDetail.callRecordingUrl)"
+            Break
+        }
+        "#microsoft.graph.callTranscriptEventMessageDetail" {
+            "$(Get-Initiator $eventDetail.meetingOrganizer $clientId, $tenantId) posted call transcript."
+            Break
+        }
         "#microsoft.graph.chatRenamedEventMessageDetail" {
             "$(Get-Initiator $eventDetail.initiator $clientId, $tenantId) changed the chat name to $($eventDetail.chatDisplayName)."
+            Break
+        }
+        "#microsoft.graph.membersJoinedEventMessageDetail" {
+            "$(Get-Initiator $eventDetail.initiator $clientId, $tenantId) added $(($eventDetail.members | ForEach-Object { Get-DisplayName $_.id $clientId $tenantId }) -join ", ")."
+
             Break
         }
         "#microsoft.graph.membersAddedEventMessageDetail" {
@@ -23,6 +40,20 @@ function ConvertTo-SystemEventMessage ($eventDetail, $clientId, $tenantId) {
             Break
         }
         "#microsoft.graph.membersDeletedEventMessageDetail" {
+            if (
+                ($eventDetail.members.count -eq 1) -and
+                ($null -ne $eventDetail.initiator.user) -and
+                ($eventDetail.initiator.user.id -eq $eventDetail.members[0].id)
+            ) {
+                "$(Get-DisplayName $eventDetail.members[0].id $clientId $tenantId) left."
+            }
+            else {
+                "$(Get-Initiator $eventDetail.initiator $clientId, $tenantId) removed $(($eventDetail.members | ForEach-Object { Get-DisplayName $_.id $clientId $tenantId }) -join ", ")."
+            }
+            
+            Break
+        }
+        "#microsoft.graph.membersLeftEventMessageDetail" {
             if (
                 ($eventDetail.members.count -eq 1) -and
                 ($null -ne $eventDetail.initiator.user) -and
