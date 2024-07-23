@@ -103,16 +103,16 @@ foreach ($chat in $chats) {
             Write-Host -ForegroundColor White ("`r`n$name :: $($messages.count) messages.")
 
             # download profile pictures for use later
-            Write-Host "Downloading profile pictures..."
+            # Write-Host "Downloading profile pictures..."
 
-            foreach ($member in $members) {
-                Get-ProfilePicture $member.userId $assetsFolder $clientId $tenantId | Out-Null
-            }
+            # foreach ($member in $members) {
+            #     Get-ProfilePicture $member.userId $assetsFolder $clientId $tenantId | Out-Null
+            # }
 
             Write-Host "Processing messages..."
 
             foreach ($message in $messages) {
-                $profilePicture = Get-ProfilePicture $message.from.user.id $assetsFolder $clientId $tenantId
+                # $profilePicture = Get-ProfilePicture $message.from.user.id $assetsFolder $clientId $tenantId
                 $time = ConvertTo-CleanDateTime $message.createdDateTime
 
                 switch ($message.messageType) {
